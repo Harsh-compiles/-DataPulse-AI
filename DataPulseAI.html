@@ -1,0 +1,648 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>DataPulse AI — Data Cleaning & Insight Engine</title>
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.0/chart.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/PapaParse/5.4.1/papaparse.min.js"></script>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+:root{
+  --bg:#f8fafc;--bg2:#ffffff;--bg3:#f1f5f9;--bg4:#e2e8f0;
+  --accent:#6366f1;--accent2:#8b5cf6;--green:#10b981;--red:#ef4444;--yellow:#f59e0b;--blue:#3b82f6;--orange:#f97316;
+  --text:#0f172a;--muted:#64748b;--border:#e2e8f0;--border2:#cbd5e1;
+}
+body{background:var(--bg);color:var(--text);font-family:'Inter',sans-serif;min-height:100vh}
+
+header{background:var(--bg2);border-bottom:1px solid var(--border);padding:0.9rem 2rem;display:flex;align-items:center;justify-content:space-between;position:sticky;top:0;z-index:50;box-shadow:0 1px 3px rgba(0,0,0,0.05)}
+.logo{display:flex;align-items:center;gap:10px}
+.logo-icon{width:34px;height:34px;background:linear-gradient(135deg,var(--accent),var(--accent2));border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px}
+.logo-text{font-family:'Space Mono',monospace;font-weight:700;font-size:1rem;color:var(--accent)}
+.logo-sub{font-size:0.65rem;color:var(--muted)}
+.header-right{display:flex;align-items:center;gap:10px}
+.badge{display:flex;align-items:center;gap:5px;font-size:0.68rem;background:rgba(99,102,241,0.08);color:var(--accent);border:1px solid rgba(99,102,241,0.2);padding:3px 10px;border-radius:12px;font-weight:500}
+
+main{max-width:1200px;margin:0 auto;padding:1.5rem}
+
+/* UPLOAD ZONE */
+.upload-zone{background:var(--bg2);border:2px dashed var(--border2);border-radius:12px;padding:3rem 2rem;text-align:center;cursor:pointer;transition:all 0.3s;margin-bottom:1.5rem;position:relative}
+.upload-zone:hover,.upload-zone.dragover{border-color:var(--accent);background:rgba(99,102,241,0.03)}
+.upload-icon{font-size:2.5rem;margin-bottom:0.8rem}
+.upload-title{font-size:1.1rem;font-weight:600;margin-bottom:0.4rem}
+.upload-sub{font-size:0.8rem;color:var(--muted);margin-bottom:1.2rem}
+.upload-btn{background:var(--accent);color:#fff;border:none;padding:8px 20px;border-radius:6px;font-size:0.8rem;font-weight:600;cursor:pointer;font-family:'Inter',sans-serif;transition:all 0.2s}
+.upload-btn:hover{background:var(--accent2)}
+.sample-row{display:flex;gap:8px;justify-content:center;margin-top:1rem;flex-wrap:wrap}
+.sample-chip{padding:4px 12px;border-radius:20px;font-size:0.7rem;border:1px solid var(--border2);background:var(--bg3);cursor:pointer;color:var(--muted);transition:all 0.2s;font-family:'Inter',sans-serif}
+.sample-chip:hover{border-color:var(--accent);color:var(--accent)}
+#fileInput{display:none}
+
+/* GRID */
+.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:1rem;margin-bottom:1rem}
+.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-bottom:1rem}
+.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:1rem;margin-bottom:1rem}
+
+/* CARDS */
+.card{background:var(--bg2);border:1px solid var(--border);border-radius:10px;overflow:hidden}
+.card-header{padding:0.8rem 1.2rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between}
+.card-title{font-size:0.78rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--muted);display:flex;align-items:center;gap:6px}
+.card-body{padding:1.2rem}
+
+/* STAT BOXES */
+.stat{background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:1rem 1.2rem}
+.stat-val{font-family:'Space Mono',monospace;font-size:1.6rem;font-weight:700;line-height:1}
+.stat-lbl{font-size:0.68rem;color:var(--muted);margin-top:4px;font-weight:500;text-transform:uppercase;letter-spacing:0.05em}
+.stat-sub{font-size:0.7rem;margin-top:6px;font-weight:500}
+
+/* ISSUES LIST */
+.issue-item{display:flex;align-items:flex-start;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:0.78rem}
+.issue-item:last-child{border-bottom:none}
+.issue-dot{width:8px;height:8px;border-radius:50%;flex-shrink:0;margin-top:4px}
+.dot-red{background:var(--red)}
+.dot-yellow{background:var(--yellow)}
+.dot-blue{background:var(--blue)}
+.dot-green{background:var(--green)}
+.issue-text{flex:1;line-height:1.5}
+.issue-count{font-family:'Space Mono',monospace;font-size:0.7rem;color:var(--muted);background:var(--bg3);padding:1px 6px;border-radius:4px;flex-shrink:0}
+
+/* TABLE PREVIEW */
+.table-wrap{overflow-x:auto;font-size:0.72rem}
+table{width:100%;border-collapse:collapse}
+th{background:var(--bg3);padding:6px 10px;text-align:left;font-size:0.68rem;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--muted);border-bottom:1px solid var(--border);white-space:nowrap}
+td{padding:6px 10px;border-bottom:1px solid var(--border);white-space:nowrap;max-width:160px;overflow:hidden;text-overflow:ellipsis}
+tr:hover td{background:var(--bg3)}
+td.issue-cell{background:rgba(239,68,68,0.07);color:var(--red)}
+td.fixed-cell{background:rgba(16,185,129,0.07);color:var(--green)}
+
+/* CLEAN ACTIONS */
+.clean-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+.clean-option{display:flex;align-items:center;gap:8px;padding:8px 10px;border:1px solid var(--border);border-radius:6px;cursor:pointer;transition:all 0.2s;font-size:0.75rem}
+.clean-option:hover{border-color:var(--accent);background:rgba(99,102,241,0.04)}
+.clean-option input[type=checkbox]{accent-color:var(--accent);width:14px;height:14px}
+.clean-option.selected{border-color:var(--accent);background:rgba(99,102,241,0.06)}
+
+/* BUTTONS */
+.btn{padding:8px 18px;border-radius:6px;font-size:0.8rem;font-weight:600;cursor:pointer;border:none;font-family:'Inter',sans-serif;transition:all 0.2s;display:inline-flex;align-items:center;gap:6px}
+.btn-primary{background:var(--accent);color:#fff}
+.btn-primary:hover{background:var(--accent2);transform:translateY(-1px)}
+.btn-primary:disabled{opacity:0.5;cursor:not-allowed;transform:none}
+.btn-green{background:var(--green);color:#fff}
+.btn-green:hover{background:#059669}
+.btn-outline{background:transparent;border:1px solid var(--border2);color:var(--muted)}
+.btn-outline:hover{border-color:var(--accent);color:var(--accent)}
+
+/* AI CHAT */
+.chat-wrap{display:flex;flex-direction:column;gap:10px;max-height:320px;overflow-y:auto;padding:1rem;background:var(--bg3);border-radius:8px;margin-bottom:1rem}
+.msg{max-width:85%;padding:10px 14px;border-radius:10px;font-size:0.8rem;line-height:1.6}
+.msg-user{background:var(--accent);color:#fff;align-self:flex-end;border-radius:10px 10px 2px 10px}
+.msg-ai{background:var(--bg2);border:1px solid var(--border);align-self:flex-start;border-radius:10px 10px 10px 2px;color:var(--text)}
+.msg-ai pre{font-family:'Space Mono',monospace;font-size:0.68rem;background:var(--bg3);padding:6px 8px;border-radius:4px;margin-top:6px;overflow-x:auto;white-space:pre-wrap}
+.chat-input-row{display:flex;gap:8px}
+.chat-input{flex:1;padding:8px 12px;border:1px solid var(--border2);border-radius:6px;font-size:0.8rem;font-family:'Inter',sans-serif;background:var(--bg2);outline:none;transition:border-color 0.2s}
+.chat-input:focus{border-color:var(--accent)}
+
+/* SUGGESTIONS */
+.suggest-chips{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:10px}
+.suggest-chip{padding:4px 10px;border-radius:16px;font-size:0.68rem;border:1px solid var(--border2);background:var(--bg2);cursor:pointer;color:var(--muted);transition:all 0.2s}
+.suggest-chip:hover{border-color:var(--accent);color:var(--accent)}
+
+/* LOADING */
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+
+/* PROGRESS */
+.progress-bar{height:6px;background:var(--bg4);border-radius:3px;overflow:hidden;margin-top:6px}
+.progress-fill{height:100%;border-radius:3px;transition:width 0.5s}
+
+/* SCORE RING */
+.score-circle{width:80px;height:80px;position:relative;flex-shrink:0}
+.score-circle canvas{width:80px!important;height:80px!important}
+.score-inner{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center}
+.score-num{font-family:'Space Mono',monospace;font-size:1.2rem;font-weight:700}
+.score-lbl{font-size:0.55rem;color:var(--muted);text-transform:uppercase}
+
+/* HIDDEN */
+.hidden{display:none}
+
+/* TABS */
+.tabs{display:flex;gap:0;border-bottom:1px solid var(--border);margin-bottom:0}
+.tab{padding:0.65rem 1.2rem;font-size:0.75rem;cursor:pointer;border-bottom:2px solid transparent;color:var(--muted);background:none;border-top:none;border-left:none;border-right:none;font-family:'Inter',sans-serif;font-weight:500;transition:all 0.2s}
+.tab.active{border-bottom-color:var(--accent);color:var(--accent)}
+.tab-pane{display:none;padding:1.2rem}
+.tab-pane.active{display:block}
+
+/* CHART */
+.chart-box{position:relative;height:200px}
+
+footer{text-align:center;padding:1.5rem;font-size:0.7rem;color:var(--muted);border-top:1px solid var(--border);margin-top:1.5rem}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="logo">
+    <div class="logo-icon">🧹</div>
+    <div>
+      <div class="logo-text">DataPulse AI</div>
+      <div class="logo-sub">Data Cleaning & Insight Engine</div>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="badge">✦ AI-Powered</div>
+  </div>
+</header>
+
+<main>
+
+  <!-- UPLOAD -->
+  <div class="upload-zone" id="uploadZone" onclick="document.getElementById('fileInput').click()" ondragover="handleDrag(event)" ondragleave="handleDragLeave(event)" ondrop="handleDrop(event)">
+    <div class="upload-icon">📂</div>
+    <div class="upload-title">Drop your CSV or click to upload</div>
+    <div class="upload-sub">Supports CSV files up to 10MB — messy data welcome</div>
+    <button class="upload-btn" onclick="event.stopPropagation();document.getElementById('fileInput').click()">Choose File</button>
+    <div class="sample-row">
+      <span style="font-size:0.72rem;color:var(--muted);align-self:center">Or try a sample:</span>
+      <button class="sample-chip" onclick="event.stopPropagation();loadSample('sales')">📊 Messy Sales Data</button>
+      <button class="sample-chip" onclick="event.stopPropagation();loadSample('employees')">👥 Employee Records</button>
+      <button class="sample-chip" onclick="event.stopPropagation();loadSample('inventory')">📦 Inventory Data</button>
+    </div>
+  </div>
+  <input type="file" id="fileInput" accept=".csv" onchange="handleFileInput(event)">
+
+  <!-- DASHBOARD (hidden until file loaded) -->
+  <div id="dashboard" class="hidden">
+
+    <!-- STATS ROW -->
+    <div class="grid-4" id="statsRow"></div>
+
+    <!-- QUALITY SCORE + ISSUES -->
+    <div class="grid-2">
+      <div class="card">
+        <div class="card-header">
+          <div class="card-title">📋 Data Quality Report</div>
+          <button class="btn btn-outline" style="font-size:0.7rem;padding:4px 10px" onclick="downloadReport()">⬇ Export</button>
+        </div>
+        <div class="card-body">
+          <div style="display:flex;align-items:center;gap:1.2rem;margin-bottom:1rem">
+            <div class="score-circle"><canvas id="qualityDial"></canvas><div class="score-inner"><div class="score-num" id="qualityScore">0</div><div class="score-lbl">Quality</div></div></div>
+            <div style="flex:1">
+              <div style="font-size:1rem;font-weight:600;margin-bottom:4px" id="qualityLabel">Analyzing...</div>
+              <div style="font-size:0.75rem;color:var(--muted);line-height:1.5" id="qualitySummary"></div>
+            </div>
+          </div>
+          <div id="issuesList"></div>
+        </div>
+      </div>
+
+      <div class="card">
+        <div class="card-header"><div class="card-title">🔧 Cleaning Actions</div></div>
+        <div class="card-body">
+          <div class="clean-grid" id="cleanOptions"></div>
+          <div style="margin-top:1rem;display:flex;gap:8px">
+            <button class="btn btn-primary" id="cleanBtn" onclick="cleanData()">✨ Clean Data</button>
+            <button class="btn btn-outline" onclick="resetToRaw()">↺ Reset</button>
+          </div>
+          <div id="cleanStatus" style="margin-top:8px;font-size:0.75rem;color:var(--green)"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- TABLE + CHARTS -->
+    <div class="card" style="margin-bottom:1rem">
+      <div class="tabs">
+        <button class="tab active" onclick="switchTab('preview')">📄 Data Preview</button>
+        <button class="tab" onclick="switchTab('cleaned')">✅ Cleaned Data</button>
+        <button class="tab" onclick="switchTab('charts')">📊 Charts</button>
+        <button class="tab" onclick="switchTab('stats')">📈 Column Stats</button>
+      </div>
+      <div class="tab-pane active" id="pane-preview"><div class="table-wrap" id="tablePreview"></div></div>
+      <div class="tab-pane" id="pane-cleaned"><div class="table-wrap" id="tableCleaned"><div style="padding:2rem;text-align:center;color:var(--muted);font-size:0.8rem">Clean your data first to see the result here.</div></div></div>
+      <div class="tab-pane" id="pane-charts"><div id="chartsArea" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem"></div></div>
+      <div class="tab-pane" id="pane-stats"><div id="colStats"></div></div>
+    </div>
+
+    <!-- AI CHAT -->
+    <div class="card">
+      <div class="card-header"><div class="card-title">🤖 Ask the AI Analyst</div><div style="font-size:0.7rem;color:var(--muted)">Ask anything about your data in plain English</div></div>
+      <div class="card-body">
+        <div class="suggest-chips" id="suggChips"></div>
+        <div class="chat-wrap" id="chatWrap">
+          <div class="msg msg-ai">👋 Your data is loaded! I've analyzed it and found the issues above. Ask me anything — "What are the top 5 values in column X?", "Show me outliers", "Summarize this dataset", or "What trends do you see?"</div>
+        </div>
+        <div class="chat-input-row">
+          <input class="chat-input" id="chatInput" placeholder="Ask about your data..." onkeydown="if(event.key==='Enter')sendChat()" />
+          <button class="btn btn-primary" id="chatBtn" onclick="sendChat()">Ask ↗</button>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</main>
+
+<footer>DataPulse AI · Built by Harshith Pankaja Mahendra · Data Mining & Statistical Analysis</footer>
+
+<script>
+let rawData = [], cleanedData = [], headers = [], filename = '';
+let analysisResult = null;
+let charts = [];
+
+// SAMPLE DATA
+const SAMPLES = {
+  sales: {
+    name: 'messy_sales_data.csv',
+    content: `Date,Product,Region,Sales,Units,Rep,Email,Category
+2024-01-15,Widget Pro,North,1250.50,12,John Smith,john@company.com,Electronics
+2024-01-16,widget pro,north,1300,12,John Smith,john@company.com,electronics
+2024/01/17,Gadget X,,850.00,8,Jane Doe,janedoe@company,Electronics
+2024-01-18,Widget Pro,South,UNKNOWN,15,Bob Wilson,bob@company.com,Electronics
+2024-01-19,,East,920.75,9,John Smith,john@company.com,
+2024-01-20,Gadget X,West,1100.25,11,Jane Doe,jane@company.com,Electronics
+2024-01-21,Widget Pro,North,-50,5,Bob Wilson,bob@company.com,Electronics
+2024-01-22,Gadget X,North,780.00,,Jane Doe,jane@company.com,Electronics
+2024-01-23,Widget Pro,South,1450.00,14,John Smith,john@company.com,Electronics
+2024-01-24,Widget Pro,North,1250.50,12,John Smith,john@company.com,Electronics
+2024-01-25,Super Widget,East,99999,3,Alice Brown,alice@company.com,Electronics
+2024-01-26,Gadget X,West,890.00,9,Jane Doe,jane@company.com,Electronics
+01/27/2024,Widget Pro,North,1100,11,Bob Wilson,bob@company.com,Electronics
+2024-01-28,gadget x,south,760.50,8,Jane Doe,jane@company.com,ELECTRONICS`
+  },
+  employees: {
+    name: 'employee_records.csv',
+    content: `ID,Name,Department,Salary,Start Date,Email,Age,Phone
+E001,Alice Johnson,Engineering,95000,2021-03-15,alice@corp.com,29,555-0101
+E002,bob smith,engineering,87000,2020-07-22,bobsmith@corp,35,5550102
+E003,Carol White,Marketing,,2019-11-01,carol@corp.com,42,555-0103
+E004,David Brown,Engineering,102000,2021-03-15,david@corp.com,31,555-0104
+E001,Alice Johnson,Engineering,95000,2021-03-15,alice@corp.com,29,555-0101
+E005,Eve Davis,HR,72000,2022-01-10,eve@corp.com,150,555-0105
+E006,Frank Miller,Marketing,68000,2018-05-30,frank@corp.com,38,
+E007,Grace Lee,Engineering,N/A,2023-02-14,grace@corp.com,26,555-0107
+E008,Henry Wilson,HR,75000,2020-09-05,henry@corp.com,45,555-0108
+E009,,Engineering,89000,2021-06-20,unknown@corp.com,33,555-0109
+E010,Iris Taylor,Marketing,71000,23/08/2019,iris@corp.com,40,555-0110`
+  },
+  inventory: {
+    name: 'inventory_data.csv',
+    content: `SKU,Product Name,Category,Stock,Price,Supplier,Last Updated,Status
+SKU001,Laptop Pro 15,Electronics,45,1299.99,TechSupply Co,2024-01-10,Active
+SKU002,wireless mouse,electronics,230,29.99,TechSupply Co,2024-01-11,active
+SKU003,USB Hub 7-Port,Electronics,,19.99,GadgetWorld,2024-01-12,Active
+SKU004,Laptop Pro 15,Electronics,45,1299.99,TechSupply Co,2024-01-10,Active
+SKU005,Monitor 27",Electronics,12,399.99,ScreenTech,2024/01/13,Active
+SKU006,Keyboard Mech,Electronics,89,149.99,TechSupply Co,2024-01-14,DISCONTINUED
+SKU007,Mouse Pad XL,Accessories,-5,12.99,GadgetWorld,2024-01-15,Active
+SKU008,Webcam HD,Electronics,34,79.99,CamPro,2024-01-16,Active
+SKU009,HDMI Cable 2m,Accessories,999999,8.99,CableKing,2024-01-17,Active
+SKU010,Laptop Stand,Accessories,,45.99,,2024-01-18,Active
+SKU011,USB-C Hub,Electronics,56,N/A,TechSupply Co,2024-01-19,Active`
+  }
+};
+
+function loadSample(type) {
+  const s = SAMPLES[type];
+  filename = s.name;
+  Papa.parse(s.content, {header:true, skipEmptyLines:true, complete: r => { rawData = r.data; headers = r.meta.fields; processData(); }});
+}
+
+function handleFileInput(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  filename = file.name;
+  Papa.parse(file, {header:true, skipEmptyLines:true, complete: r => { rawData = r.data; headers = r.meta.fields; processData(); }});
+}
+function handleDrag(e){e.preventDefault();document.getElementById('uploadZone').classList.add('dragover')}
+function handleDragLeave(){document.getElementById('uploadZone').classList.remove('dragover')}
+function handleDrop(e){e.preventDefault();document.getElementById('uploadZone').classList.remove('dragover');const f=e.dataTransfer.files[0];if(f){filename=f.name;Papa.parse(f,{header:true,skipEmptyLines:true,complete:r=>{rawData=r.data;headers=r.meta.fields;processData()}})}}
+
+function processData() {
+  cleanedData = JSON.parse(JSON.stringify(rawData));
+  document.getElementById('dashboard').classList.remove('hidden');
+  document.getElementById('uploadZone').style.display = 'none';
+  analyzeData();
+}
+
+function analyzeData() {
+  const issues = detectIssues(rawData);
+  const score = calcScore(issues);
+  renderStats(rawData, issues);
+  renderQuality(score, issues);
+  renderCleanOptions(issues);
+  renderTable('tablePreview', rawData, issues.cells || {});
+  renderColStats();
+  renderSuggestedQuestions();
+  analysisResult = {issues, score};
+}
+
+function detectIssues(data) {
+  const issues = {nulls:{}, duplicates:[], types:{}, outliers:{}, formatting:{}, cells:{}};
+  const seen = new Set();
+  data.forEach((row, ri) => {
+    const key = JSON.stringify(row);
+    if (seen.has(key)) issues.duplicates.push(ri);
+    else seen.add(key);
+    headers.forEach(h => {
+      const v = row[h];
+      if (!v || v.trim() === '' || v === 'N/A' || v === 'UNKNOWN' || v === 'null') {
+        issues.nulls[h] = (issues.nulls[h]||0)+1;
+        if (!issues.cells[ri]) issues.cells[ri] = {};
+        issues.cells[ri][h] = 'null';
+      }
+      // Outliers for numeric
+      const num = parseFloat(v);
+      if (!isNaN(num)) {
+        const vals = data.map(r=>parseFloat(r[h])).filter(n=>!isNaN(n));
+        const mean = vals.reduce((a,b)=>a+b,0)/vals.length;
+        const std = Math.sqrt(vals.map(x=>(x-mean)**2).reduce((a,b)=>a+b,0)/vals.length);
+        if (Math.abs(num-mean) > 3*std && std > 0) {
+          issues.outliers[h] = (issues.outliers[h]||0)+1;
+          if (!issues.cells[ri]) issues.cells[ri] = {};
+          issues.cells[ri][h] = 'outlier';
+        }
+        if (num < 0) {
+          if (!issues.cells[ri]) issues.cells[ri] = {};
+          issues.cells[ri][h] = 'negative';
+        }
+      }
+      // Format issues
+      if (v && (v.includes('/') && h.toLowerCase().includes('date') && !v.match(/^\d{4}-\d{2}-\d{2}$/))) {
+        issues.formatting[h] = (issues.formatting[h]||0)+1;
+        if (!issues.cells[ri]) issues.cells[ri] = {};
+        issues.cells[ri][h] = 'format';
+      }
+      // Case inconsistency
+      if (v && v !== v.trim()) { issues.formatting[h] = (issues.formatting[h]||0)+1; }
+    });
+  });
+  return issues;
+}
+
+function calcScore(issues) {
+  let deductions = 0;
+  const totalCells = rawData.length * headers.length;
+  const nullCount = Object.values(issues.nulls).reduce((a,b)=>a+b,0);
+  const outlierCount = Object.values(issues.outliers).reduce((a,b)=>a+b,0);
+  const formatCount = Object.values(issues.formatting).reduce((a,b)=>a+b,0);
+  deductions += (nullCount/totalCells)*40;
+  deductions += (issues.duplicates.length/rawData.length)*20;
+  deductions += (outlierCount/totalCells)*20;
+  deductions += (formatCount/totalCells)*20;
+  return Math.max(0, Math.min(100, Math.round(100-deductions)));
+}
+
+function renderStats(data, issues) {
+  const nullCount = Object.values(issues.nulls).reduce((a,b)=>a+b,0);
+  const outlierCount = Object.values(issues.outliers).reduce((a,b)=>a+b,0);
+  const stats = [
+    {val: data.length, lbl:'Total Rows', sub:'records loaded', color:'var(--accent)'},
+    {val: headers.length, lbl:'Columns', sub:'fields detected', color:'var(--blue)'},
+    {val: nullCount, lbl:'Missing Values', sub:`across ${Object.keys(issues.nulls).length} columns`, color: nullCount>0?'var(--red)':'var(--green)'},
+    {val: issues.duplicates.length, lbl:'Duplicate Rows', sub:'exact matches found', color: issues.duplicates.length>0?'var(--yellow)':'var(--green)'}
+  ];
+  document.getElementById('statsRow').innerHTML = stats.map(s=>`
+    <div class="stat">
+      <div class="stat-val" style="color:${s.color}">${s.val}</div>
+      <div class="stat-lbl">${s.lbl}</div>
+      <div class="stat-sub" style="color:${s.color}">${s.sub}</div>
+    </div>`).join('');
+}
+
+function renderQuality(score, issues) {
+  // Draw dial
+  const canvas = document.getElementById('qualityDial');
+  canvas.width=80; canvas.height=80;
+  const c=canvas.getContext('2d'), cx=40,cy=40,r=32;
+  c.beginPath(); c.arc(cx,cy,r,Math.PI*.75,Math.PI*2.25); c.strokeStyle='#e2e8f0'; c.lineWidth=6; c.stroke();
+  const color = score>=80?'#10b981':score>=60?'#f59e0b':'#ef4444';
+  const end = Math.PI*.75+(score/100)*Math.PI*1.5;
+  c.beginPath(); c.arc(cx,cy,r,Math.PI*.75,end); c.strokeStyle=color; c.lineWidth=6; c.lineCap='round'; c.stroke();
+  document.getElementById('qualityScore').textContent=score;
+  document.getElementById('qualityScore').style.color=color;
+  const lbl = score>=80?'Good Quality':score>=60?'Needs Cleaning':'Poor Quality';
+  document.getElementById('qualityLabel').textContent=lbl;
+  document.getElementById('qualityLabel').style.color=color;
+  document.getElementById('qualitySummary').textContent=`Found ${Object.keys(issues.nulls).length} columns with nulls, ${issues.duplicates.length} duplicates, and ${Object.keys(issues.outliers).length} columns with outliers.`;
+
+  const nullCount = Object.values(issues.nulls).reduce((a,b)=>a+b,0);
+  const outlierCount = Object.values(issues.outliers).reduce((a,b)=>a+b,0);
+  const formatCount = Object.values(issues.formatting).reduce((a,b)=>a+b,0);
+  const items = [
+    nullCount>0 && {dot:'dot-red', text:`Missing values (nulls, N/A, UNKNOWN)`, detail:Object.entries(issues.nulls).map(([k,v])=>`${k}: ${v}`).join(', '), count:nullCount},
+    issues.duplicates.length>0 && {dot:'dot-yellow', text:'Duplicate rows detected', detail:'Exact row duplicates', count:issues.duplicates.length},
+    outlierCount>0 && {dot:'dot-red', text:'Statistical outliers (>3σ from mean)', detail:Object.keys(issues.outliers).join(', '), count:outlierCount},
+    formatCount>0 && {dot:'dot-blue', text:'Formatting inconsistencies', detail:'Date formats, case inconsistencies', count:formatCount},
+  ].filter(Boolean);
+  document.getElementById('issuesList').innerHTML = items.map(i=>`
+    <div class="issue-item">
+      <div class="issue-dot ${i.dot}"></div>
+      <div class="issue-text"><strong>${i.text}</strong><div style="font-size:0.7rem;color:var(--muted);margin-top:2px">${i.detail}</div></div>
+      <div class="issue-count">${i.count}</div>
+    </div>`).join('') || '<div style="color:var(--green);font-size:0.8rem;padding:8px 0">✅ No major issues found!</div>';
+}
+
+function renderCleanOptions(issues) {
+  const nullCount = Object.values(issues.nulls).reduce((a,b)=>a+b,0);
+  const opts = [
+    {id:'fix-nulls', label:'Fill missing values', desc:`${nullCount} cells`, enabled: nullCount>0},
+    {id:'fix-dupes', label:'Remove duplicates', desc:`${issues.duplicates.length} rows`, enabled: issues.duplicates.length>0},
+    {id:'fix-case', label:'Standardize text case', desc:'Title/lower case', enabled: true},
+    {id:'fix-dates', label:'Normalize date formats', desc:'YYYY-MM-DD', enabled: Object.keys(issues.formatting).length>0},
+    {id:'fix-trim', label:'Trim whitespace', desc:'All text columns', enabled: true},
+    {id:'fix-types', label:'Fix data types', desc:'Numbers as strings', enabled: true},
+  ];
+  document.getElementById('cleanOptions').innerHTML = opts.map(o=>`
+    <label class="clean-option ${o.enabled?'':''}">
+      <input type="checkbox" id="${o.id}" ${o.enabled?'checked':''} />
+      <div><div style="font-weight:500;font-size:0.75rem">${o.label}</div><div style="font-size:0.65rem;color:var(--muted)">${o.desc}</div></div>
+    </label>`).join('');
+}
+
+function renderTable(targetId, data, issueCells={}) {
+  if (!data.length) return;
+  const preview = data.slice(0,8);
+  const html = `<table>
+    <thead><tr>${headers.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
+    <tbody>${preview.map((row,ri)=>`<tr>${headers.map(h=>{
+      const v = row[h]||'';
+      const cellIssue = issueCells[ri] && issueCells[ri][h];
+      const cls = cellIssue ? (targetId==='tableCleaned'?'fixed-cell':'issue-cell') : '';
+      return `<td class="${cls}" title="${cellIssue||''}">${v||'<em style="color:var(--muted)">null</em>'}</td>`;
+    }).join('')}</tr>`).join('')}</tbody>
+  </table><div style="padding:6px 10px;font-size:0.68rem;color:var(--muted);border-top:1px solid var(--border)">Showing ${preview.length} of ${data.length} rows</div>`;
+  document.getElementById(targetId).innerHTML = html;
+}
+
+function cleanData() {
+  const btn = document.getElementById('cleanBtn');
+  btn.disabled = true; btn.innerHTML = '<div class="spinner"></div> Cleaning...';
+  setTimeout(() => {
+    let data = JSON.parse(JSON.stringify(rawData));
+    const issues = detectIssues(rawData);
+    if (document.getElementById('fix-dupes')?.checked) {
+      const seen = new Set();
+      data = data.filter(row => { const k=JSON.stringify(row); if(seen.has(k)) return false; seen.add(k); return true; });
+    }
+    data = data.map(row => {
+      const newRow = {...row};
+      headers.forEach(h => {
+        let v = newRow[h];
+        if (document.getElementById('fix-trim')?.checked && v) v = v.trim();
+        if (document.getElementById('fix-nulls')?.checked && (!v || v==='N/A' || v==='UNKNOWN' || v==='null')) {
+          const numVals = rawData.map(r=>parseFloat(r[h])).filter(n=>!isNaN(n));
+          if (numVals.length > 0) { v = (numVals.reduce((a,b)=>a+b,0)/numVals.length).toFixed(2); }
+          else { const mode = [...rawData.map(r=>r[h])].filter(Boolean).sort((a,b)=>rawData.filter(r=>r[h]===a).length-rawData.filter(r=>r[h]===b).length).pop(); v = mode || 'Unknown'; }
+        }
+        if (document.getElementById('fix-case')?.checked && v && isNaN(parseFloat(v))) {
+          v = v.charAt(0).toUpperCase() + v.slice(1).toLowerCase();
+        }
+        if (document.getElementById('fix-dates')?.checked && v && h.toLowerCase().includes('date')) {
+          v = v.replace(/(\d{1,2})\/(\d{1,2})\/(\d{4})/, '$3-$2-$1').replace(/(\d{4})\/(\d{2})\/(\d{2})/, '$1-$2-$3');
+        }
+        newRow[h] = v;
+      });
+      return newRow;
+    });
+    cleanedData = data;
+    renderTable('tableCleaned', cleanedData, {});
+    const newIssues = detectIssues(cleanedData);
+    const newScore = calcScore(newIssues);
+    document.getElementById('cleanStatus').textContent = `✅ Cleaned! Score improved to ${newScore}/100. ${rawData.length - cleanedData.length} duplicate rows removed.`;
+    renderCharts();
+    btn.disabled = false; btn.innerHTML = '✨ Clean Data';
+    switchTab('cleaned');
+  }, 800);
+}
+
+function renderColStats() {
+  const rows = headers.map(h => {
+    const vals = rawData.map(r=>r[h]).filter(Boolean);
+    const numVals = vals.map(v=>parseFloat(v)).filter(n=>!isNaN(n));
+    const isNum = numVals.length > vals.length*0.6;
+    const nulls = rawData.length - vals.length;
+    let stats = `<span style="color:var(--muted);font-size:0.7rem">Nulls: ${nulls}</span>`;
+    if (isNum && numVals.length > 0) {
+      const min=Math.min(...numVals),max=Math.max(...numVals),mean=(numVals.reduce((a,b)=>a+b,0)/numVals.length);
+      stats += ` · Min: ${min.toFixed(1)} · Max: ${max.toFixed(1)} · Mean: ${mean.toFixed(1)}`;
+    } else {
+      const unique = new Set(vals).size;
+      stats += ` · Unique: ${unique} · Type: Text`;
+    }
+    const fillPct = Math.round((vals.length/rawData.length)*100);
+    return `<div style="padding:10px 0;border-bottom:1px solid var(--border);font-size:0.78rem">
+      <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:4px">
+        <strong>${h}</strong><span style="font-size:0.68rem;color:${fillPct>90?'var(--green)':'var(--yellow)'}">${fillPct}% complete</span>
+      </div>
+      <div>${stats}</div>
+      <div class="progress-bar"><div class="progress-fill" style="width:${fillPct}%;background:${fillPct>90?'var(--green)':'var(--yellow)'}"></div></div>
+    </div>`;
+  });
+  document.getElementById('colStats').innerHTML = `<div style="padding:1.2rem">${rows.join('')}</div>`;
+}
+
+function renderCharts() {
+  charts.forEach(c=>c.destroy()); charts=[];
+  const area = document.getElementById('chartsArea');
+  area.innerHTML = '';
+  const numCols = headers.filter(h => {
+    const vals = (cleanedData.length?cleanedData:rawData).map(r=>parseFloat(r[h])).filter(n=>!isNaN(n));
+    return vals.length > (cleanedData.length?cleanedData:rawData).length*0.5;
+  }).slice(0,4);
+  const catCols = headers.filter(h => {
+    const vals = (cleanedData.length?cleanedData:rawData).map(r=>r[h]).filter(Boolean);
+    const unique = new Set(vals).size;
+    return unique < 10 && unique > 1 && !numCols.includes(h);
+  }).slice(0,2);
+  [...numCols.slice(0,2), ...catCols.slice(0,2)].forEach((col,i) => {
+    const data = cleanedData.length ? cleanedData : rawData;
+    const div = document.createElement('div');
+    div.innerHTML = `<div style="font-size:0.72rem;font-weight:600;color:var(--muted);text-transform:uppercase;letter-spacing:0.05em;margin-bottom:8px">${col}</div><div class="chart-box"><canvas id="chart-${i}"></canvas></div>`;
+    area.appendChild(div);
+    const vals = data.map(r=>parseFloat(r[col])).filter(n=>!isNaN(n));
+    const catVals = data.map(r=>r[col]).filter(Boolean);
+    const isNum = vals.length > data.length*0.5;
+    const ctx2 = document.getElementById(`chart-${i}`).getContext('2d');
+    if (isNum) {
+      const chart = new Chart(ctx2, {type:'bar',data:{labels:data.slice(0,12).map((_,j)=>`Row ${j+1}`),datasets:[{data:data.slice(0,12).map(r=>parseFloat(r[col])||0),backgroundColor:'rgba(99,102,241,0.7)',borderRadius:4}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false}},scales:{x:{display:false},y:{grid:{color:'#f1f5f9'},ticks:{color:'#64748b',font:{size:10}}}}}});
+      charts.push(chart);
+    } else {
+      const counts = {}; catVals.forEach(v=>{counts[v]=(counts[v]||0)+1});
+      const sorted = Object.entries(counts).sort((a,b)=>b[1]-a[1]).slice(0,6);
+      const colors = ['rgba(99,102,241,0.7)','rgba(16,185,129,0.7)','rgba(245,158,11,0.7)','rgba(59,130,246,0.7)','rgba(239,68,68,0.7)','rgba(139,92,246,0.7)'];
+      const chart = new Chart(ctx2, {type:'doughnut',data:{labels:sorted.map(s=>s[0]),datasets:[{data:sorted.map(s=>s[1]),backgroundColor:colors,borderWidth:0}]},options:{responsive:true,maintainAspectRatio:false,plugins:{legend:{position:'right',labels:{font:{size:10},color:'#64748b'}}}}});
+      charts.push(chart);
+    }
+  });
+}
+
+function renderSuggestedQuestions() {
+  const qs = [`What are the top values in ${headers[0]}?`,`How many nulls per column?`,`What are the outliers?`,`Summarize this dataset`,`What trends do you see?`];
+  document.getElementById('suggChips').innerHTML = qs.map(q=>`<button class="suggest-chip" onclick="askQ('${q}')">${q}</button>`).join('');
+}
+
+function askQ(q) { document.getElementById('chatInput').value=q; sendChat(); }
+
+async function sendChat() {
+  const input = document.getElementById('chatInput');
+  const q = input.value.trim();
+  if (!q || !rawData.length) return;
+  input.value = '';
+  const chat = document.getElementById('chatWrap');
+  chat.innerHTML += `<div class="msg msg-user">${q}</div>`;
+  chat.innerHTML += `<div class="msg msg-ai" id="aiTyping"><div class="spinner" style="width:14px;height:14px;border-width:2px"></div></div>`;
+  chat.scrollTop = chat.scrollHeight;
+  document.getElementById('chatBtn').disabled = true;
+
+  const dataSample = (cleanedData.length?cleanedData:rawData).slice(0,20);
+  const issues = analysisResult?.issues || {};
+  const nullCount = Object.values(issues.nulls||{}).reduce((a,b)=>a+b,0);
+
+  const prompt = `You are DataPulse AI, a data analyst. The user has uploaded a CSV called "${filename}" with ${rawData.length} rows and ${headers.length} columns: ${headers.join(', ')}.
+
+Data quality: ${nullCount} nulls, ${(issues.duplicates||[]).length} duplicates, ${Object.keys(issues.outliers||{}).length} columns with outliers.
+
+Sample data (first 20 rows): ${JSON.stringify(dataSample)}
+
+User question: "${q}"
+
+Answer concisely in plain English. If showing numbers, be specific. If relevant, mention column names. Keep response under 150 words. If the user asks for a chart or visualization, describe what it would show instead.`;
+
+  try {
+    const res = await fetch('https://api.anthropic.com/v1/messages', {
+      method:'POST', headers:{'Content-Type':'application/json'},
+      body: JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:400,messages:[{role:'user',content:prompt}]})
+    });
+    const data = await res.json();
+    document.getElementById('aiTyping').innerHTML = data.content[0].text;
+  } catch(e) {
+    document.getElementById('aiTyping').innerHTML = `Error: ${e.message}`;
+  }
+  chat.scrollTop = chat.scrollHeight;
+  document.getElementById('chatBtn').disabled = false;
+}
+
+function switchTab(name) {
+  document.querySelectorAll('.tab').forEach((t,i)=>{ const names=['preview','cleaned','charts','stats']; t.classList.toggle('active',names[i]===name); });
+  document.querySelectorAll('.tab-pane').forEach(p=>p.classList.remove('active'));
+  document.getElementById('pane-'+name).classList.add('active');
+  if (name==='charts' && cleanedData.length) renderCharts();
+}
+
+function resetToRaw() {
+  cleanedData = [];
+  renderTable('tableCleaned', [], {});
+  document.getElementById('cleanStatus').textContent = '';
+  document.getElementById('tableCleaned').innerHTML = '<div style="padding:2rem;text-align:center;color:var(--muted);font-size:0.8rem">Clean your data first to see the result here.</div>';
+  switchTab('preview');
+}
+
+function downloadReport() {
+  const issues = analysisResult?.issues || {};
+  const score = analysisResult?.score || 0;
+  const report = `DataPulse AI — Data Quality Report\n${'='.repeat(40)}\nFile: ${filename}\nRows: ${rawData.length} | Columns: ${headers.length}\nQuality Score: ${score}/100\n\nIssues Found:\n- Missing values: ${Object.values(issues.nulls||{}).reduce((a,b)=>a+b,0)}\n- Duplicates: ${(issues.duplicates||[]).length}\n- Outliers: ${Object.values(issues.outliers||{}).reduce((a,b)=>a+b,0)}\n- Format issues: ${Object.values(issues.formatting||{}).reduce((a,b)=>a+b,0)}\n\nColumns:\n${headers.join('\n')}`;
+  const blob = new Blob([report], {type:'text/plain'});
+  const a = document.createElement('a'); a.href=URL.createObjectURL(blob); a.download='datapulse_report.txt'; a.click();
+}
+</script>
+</body>
+</html>
